@@ -22,14 +22,16 @@ const (
 <title>{{ .Title }}</title>
 </head>
 <body>
+<h2>You are previewing {{ .FileName }}</h2>
 {{ .Body }}
 </body>
 </html>`
 )
 
 type content struct {
-	Title string
-	Body  template.HTML
+	Title    string
+	FileName string
+	Body     template.HTML
 }
 
 func main() {
@@ -55,7 +57,7 @@ func run(filename string, tFname string, out io.Writer, skipPreview bool) error 
 		return err
 	}
 
-	htmlData, err := parseContent(input, tFname)
+	htmlData, err := parseContent(input, tFname, filename)
 	if err != nil {
 		return err
 	}
@@ -81,7 +83,7 @@ func run(filename string, tFname string, out io.Writer, skipPreview bool) error 
 	return preview(outName)
 }
 
-func parseContent(input []byte, tFname string) ([]byte, error) {
+func parseContent(input []byte, tFname string, fileName string) ([]byte, error) {
 	output := blackfriday.Run(input)
 	body := bluemonday.UGCPolicy().SanitizeBytes(output)
 
@@ -98,8 +100,9 @@ func parseContent(input []byte, tFname string) ([]byte, error) {
 	}
 
 	c := content{
-		Title: "Markdown Preview Tool",
-		Body:  template.HTML(body),
+		Title:    "Markdown Preview Tool",
+		FileName: fileName,
+		Body:     template.HTML(body),
 	}
 
 	var buffer bytes.Buffer
