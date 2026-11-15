@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -40,23 +43,19 @@ func main() {
 	tFname := flag.String("t", "", "Alternate template name")
 	flag.Parse()
 
-	if *filename == "" {
-		flag.Usage()
-		os.Exit(1)
-	}
-
 	if *tFname == "" && os.Getenv("TEMPLATE_FILENAME") != "" {
 		*tFname = os.Getenv("TEMPLATE_FILENAME")
 	}
 
-	if err := run(*filename, *tFname, os.Stdout, *skipPreview); err != nil {
+	if err := run(*filename, *tFname, os.Stdin, os.Stdout, *skipPreview); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(filename string, tFname string, out io.Writer, skipPreview bool) error {
-	input, err := os.ReadFile(filename)
+func run(filename string, tFname string, in io.Reader, out io.Writer, skipPreview bool) error {
+
+	input, err := getInput(in, filename, flag.Args()...)
 	if err != nil {
 		return err
 	}
@@ -136,4 +135,30 @@ func preview(fname string) error {
 	time.Sleep(2 * time.Second)
 
 	return err
+}
+
+func getInput(in io.Reader, filename string, args ...string) ([]byte, error) {
+	if len(args) > 0 {
+		return []byte(strings.Join(args, " ")), nil
+	}
+
+	if filename != "" {
+		input, err := os.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		return input, nil
+	}
+
+	s := bufio.NewScanner(in)
+	s.Scan()
+	if err := s.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(s.Text()) == 0 {
+		return nil, errors.New("Input cannot be blank")
+	}
+
+	return []byte(s.Text()), nil
 }
